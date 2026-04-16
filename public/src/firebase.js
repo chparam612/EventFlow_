@@ -37,7 +37,13 @@ export async function writeStaffStatus(uid, zone, status) {
 
 export async function pushInstruction(zoneId, message, sentBy) {
   await safeWrite('instr:' + zoneId, () =>
-    push(ref(db, 'instructions'), { zoneId, message, sentBy, sentAt: Date.now(), acked: [] })
+    push(ref(db, 'instructions'), { zoneId, message, sentBy, sentAt: Date.now(), acked: {} })
+  );
+}
+
+export async function ackInstruction(id, uid) {
+  await safeWrite('ack:' + id, () =>
+    set(ref(db, `instructions/${id}/acked/${uid}`), true)
   );
 }
 
@@ -54,7 +60,9 @@ export async function saveAttendeeData(uid, data) {
 }
 
 export async function saveFeedback(data) {
-  await push(ref(db, 'feedback'), { ...data, submittedAt: Date.now() });
+  await safeWrite('feedback:' + Date.now(), () =>
+    push(ref(db, 'feedback'), { ...data, submittedAt: Date.now() })
+  );
 }
 
 export function listenZones(cb) {

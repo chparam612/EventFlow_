@@ -10,11 +10,13 @@
     },
     "instructions": {
       ".read": "auth != null",
-      ".write": "auth != null && auth.token.email.contains('control')"
+      ".write": "auth != null && auth.token.email.contains('control')",
+      ".indexOn": ["zoneId"]
     },
     "nudges": {
       ".read": "auth != null",
-      ".write": "auth != null && auth.token.email.contains('control')"
+      ".write": "auth != null && auth.token.email.contains('control')",
+      ".indexOn": ["zoneId"]
     },
     "attendees": {
       "$uid": {

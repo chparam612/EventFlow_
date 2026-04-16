@@ -1,6 +1,6 @@
 import { getCurrentUser, logout } from '/src/auth.js';
 import { ZONES, setStaffOverride } from '/src/simulation.js';
-import { writeStaffStatus, listenInstructions } from '/src/firebase.js';
+import { writeStaffStatus, listenInstructions, ackInstruction } from '/src/firebase.js';
 
 export function render() {
   const zoneId = localStorage.getItem('ef_zone') || 'north';
@@ -73,11 +73,16 @@ export async function init(navigate) {
   const unsubInstr = listenInstructions(zoneId, (items) => {
     if (items.length > 0) {
       const latest = items[0];
+      const isAcked = latest.acked && latest.acked[user.uid];
+
       instrText.textContent = latest.message;
-      btnAck.disabled = false;
-      btnAck.style.background = 'var(--green)';
-      btnAck.style.color = '#000';
-      btnAck.textContent = 'Acknowledge';
+      btnAck.disabled = isAcked;
+      btnAck.style.background = isAcked ? 'var(--border)' : 'var(--green)';
+      btnAck.style.color = isAcked ? 'var(--text-secondary)' : '#000';
+      btnAck.textContent = isAcked ? '✓ Acknowledged' : 'Acknowledge';
+      
+      // Store current instruction ID for the click listener
+      btnAck.dataset.latestId = latest.id;
     } else {
       instrText.textContent = 'No instructions — all clear ✓';
       btnAck.disabled = true;
@@ -87,12 +92,13 @@ export async function init(navigate) {
     }
   });
 
-  btnAck.addEventListener('click', () => {
-    btnAck.disabled = true;
-    btnAck.style.background = 'var(--border)';
-    btnAck.style.color = 'var(--text-secondary)';
-    btnAck.style.borderColor = 'var(--text-muted)';
-    btnAck.textContent = '✓ Acknowledged';
+  btnAck.addEventListener('click', async () => {
+    const id = btnAck.dataset.latestId;
+    if (id) {
+      await ackInstruction(id, user.uid);
+      btnAck.disabled = true;
+      btnAck.textContent = 'Acknowledging...';
+    }
   });
 
   // Toggle status

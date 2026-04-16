@@ -60,6 +60,7 @@ function renderIntake() {
         ${opts.map(o => `<button class="intake-opt" data-val="${o}" style="padding:16px; border-radius:12px; background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:1.1rem; text-align:left;">${o}</button>`).join('')}
       </div>
     </div>
+    ${renderAIChat()}
   </div>`;
 }
 
@@ -113,7 +114,7 @@ function renderPlan() {
 function renderEscort() {
   return `
   <div class="fade-in" style="min-height:100vh; display:flex; flex-direction:column; background:#000;">
-    <div style="height:35vh; background:url('https://maps.googleapis.com/maps/api/staticmap?center=23.0955,72.5952&zoom=18&size=600x400&maptype=satellite&key=AIzaSyAKnEkOCKgXYr9B8PZCtbSkXgzUVZ_Rj_c') center/cover;"></div>
+    <div id="map-escort" style="height:35vh; width:100%; background:var(--bg-card);"></div>
     <div style="flex:1; background:var(--bg-deep); border-top-left-radius:24px; border-top-right-radius:24px; margin-top:-24px; padding:24px; display:flex; flex-direction:column;">
       <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:8px;">Step 1 of 4</div>
       <h2 style="font-size:1.6rem; margin-bottom:16px; line-height:1.2;">Head towards North Gate B, keeping left on the main path.</h2>
@@ -144,7 +145,7 @@ function renderDuring() {
     
     <div class="card" style="padding:0; border-radius:16px; overflow:hidden; margin-bottom:20px;">
       <div style="padding:12px 16px; border-bottom:1px solid var(--border); font-weight:600; font-size:0.9rem;">Venue Map</div>
-      <div style="height:200px; background:url('https://maps.googleapis.com/maps/api/staticmap?center=23.0925,72.5952&zoom=16&size=600x300&maptype=satellite&key=AIzaSyAKnEkOCKgXYr9B8PZCtbSkXgzUVZ_Rj_c') center/cover;"></div>
+      <div id="map-live" style="height:200px; width:100%; background:var(--bg-card);"></div>
     </div>
     
     <button id="btn-to-exit" style="width:100%; padding:14px; border-radius:8px; background:var(--bg-card2); color:var(--text-primary); border:1px solid var(--border); font-size:1rem;">Plan Exit / Leave</button>
@@ -266,9 +267,35 @@ function bindEvents() {
   });
 
   // Init AI Chat if present
-  if (state.screen === 'plan' || state.screen === 'during') {
+  if (state.screen === 'plan' || state.screen === 'during' || state.screen === 'intake') {
     initAIChat(() => state.liveZones);
   }
+
+  // Init Maps if present
+  if (state.screen === 'escort' || state.screen === 'during') {
+    initMaps();
+  }
+}
+
+function initMaps() {
+  const mapIds = { 'map-escort': { lat: 23.0955, lng: 72.5952, z: 18 }, 'map-live': { lat: 23.0925, lng: 72.5952, z: 16 } };
+  
+  const setup = () => {
+    for (const [id, cfg] of Object.entries(mapIds)) {
+      const el = document.getElementById(id);
+      if (el) {
+        new google.maps.Map(el, {
+          center: { lat: cfg.lat, lng: cfg.lng },
+          zoom: cfg.z,
+          mapTypeId: 'satellite',
+          disableDefaultUI: true
+        });
+      }
+    }
+  };
+
+  if (window.google && window.google.maps) setup();
+  else window.addEventListener('mapsReady', setup, { once: true });
 }
 
 export async function init(navigate) {
