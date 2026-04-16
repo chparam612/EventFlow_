@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EventFlow — Smart crowd guide for Narendra Modi Stadium">
+  <title>EventFlow — NMS</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #060A10;
+      --bg-card: #0D1421;
+      --bg-card2: #131C2E;
+      --border: rgba(255, 255, 255, 0.07);
+      --border-accent: rgba(0, 196, 154, 0.25);
+      --green: #00C49A;
+      --green-dim: rgba(0, 196, 154, 0.12);
+      --orange: #FF6B35;
+      --orange-dim: rgba(255, 107, 53, 0.12);
+      --red: #FF4757;
+      --red-dim: rgba(255, 71, 87, 0.1);
+      --yellow: #FFD166;
+      --text-primary: #F0F4F8;
+      --text-secondary: #8899A6;
+      --text-muted: #4A5568;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #060A10;
+      color: #F0F4F8;
+      min-height: 100vh;
+    }
+
+    h1,
+    h2,
+    h3,
+    .mono {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    #app {
+      min-height: 100vh;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.3s ease forwards;
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    input,
+    select,
+    textarea {
+      font-family: 'DM Sans', sans-serif;
+      background: transparent;
+      border: 1px solid var(--border-accent);
+      color: var(--text-primary);
+    }
+
+    button {
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    button.primary {
+      background: var(--green);
+      color: #000;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+    }
+  </style>
+
+  <!-- Google Maps — define initMap BEFORE loading the script -->
+  <script>
+    window.initMap = function () {
+      console.log('Google Maps ready');
+      window.dispatchEvent(new CustomEvent('mapsReady'));
+    };
+  </script>
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKnEkOCKgXYr9B8PZCtbSkXgzUVZ_Rj_c&callback=initMap&libraries=maps,marker&loading=async"
+    async defer></script>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import { initRouter } from '/src/router.js';
+    initRouter();
+  </script>
+</body>
+
+</html>
