@@ -402,6 +402,15 @@ export async function init(navigate) {
   let densities = {}; // TASK 1: Declare shared densities object
   let heatmapEnabled = true; // Default ON
 
+  // ── DOM refs ──
+  const scrubber     = document.getElementById('ctrl-scrubber');
+  const tickLabel    = document.getElementById('ctrl-tick-label');
+  const timeLabel    = document.getElementById('ctrl-time-label');
+  const totalEl      = document.getElementById('ctrl-total');
+  const metricAvg    = document.getElementById('metric-avg');
+  const metricNudges = document.getElementById('metric-nudges');
+  const ctrlTimeEl   = document.getElementById('ctrl-time');
+
   // ── Helpers ──
   const mapEl = document.getElementById('nms-map');
   const initCtrlMap = () => initMap(mapEl, getZoneDensity());
@@ -601,7 +610,6 @@ export async function init(navigate) {
     await autoAlertCheck(densities);
   }
 
-  const ctrlTimeEl = document.getElementById('ctrl-time');
   simInterval = setInterval(doTick, 5000);
   doTick(); // immediate first tick
 
@@ -759,7 +767,7 @@ export async function init(navigate) {
   const pulseInt = setInterval(() => {
     const predictions = calculatePredictions(densities);
     updateMapOverlays(densities, predictions);
-    updateAnalyticsDashboard(densities);
+    updateMetrics(densities);
   }, 3000);
   cleanupFirebase.push(() => clearInterval(pulseInt));
 
