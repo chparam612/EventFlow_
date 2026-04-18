@@ -14,7 +14,9 @@ import {
 import { getAIInsights } from '/src/gemini.js';
 import { predictFutureDensity, detectSurgeRisk } from '/src/predictiveEngine.js';
 import { initMap, updateMapOverlays, ZONE_BOUNDS } from './MapController.js';
-import { updateAnalytics } from './AnalyticsStore.js';
+import { updateAnalytics, renderPredictiveAlerts } from './AnalyticsStore.js';
+import { rankBestExit } from '/src/evacuationEngine.js';
+import { calculateEvacuationRoutes, getEmergencyMessage } from '/src/emergencyEngine.js';
 
 // NMS approximate bounding coords for each zone overlay
 let simInterval = null;
@@ -589,7 +591,7 @@ export async function init(navigate) {
     updateMapOverlays(densities, predictions, currentEmergency, heatmapEnabled);
     updateMetrics(densities);
     renderAlerts(densities);
-    import('./AnalyticsStore.js').then(m => m.renderPredictiveAlerts(predictions));
+    renderPredictiveAlerts(predictions);
 
     // Update scrubber
     const tick = getTick();
@@ -630,7 +632,7 @@ export async function init(navigate) {
       import('/src/simulation.js').then(m => res(m.getZoneDensity()));
     });
     const predictions = calculatePredictions(densities);
-    updateMapOverlays(densities, predictions);
+    updateMapOverlays(densities, predictions, currentEmergency, heatmapEnabled);
     updateMetrics(densities);
     renderAlerts(densities);
     renderPredictiveAlerts(predictions);
@@ -649,7 +651,7 @@ export async function init(navigate) {
     
     if (Object.keys(densities).length > 0) {
       const predictions = calculatePredictions(densities);
-      updateMapOverlays(densities, predictions);
+      updateMapOverlays(densities, predictions, currentEmergency, heatmapEnabled);
       updateMetrics(densities);
       renderAlerts(densities);
       renderPredictiveAlerts(predictions);
@@ -712,7 +714,7 @@ export async function init(navigate) {
         document.getElementById('emerg-zone-val').textContent = (ZONES[state.zone]?.name || state.zone).toUpperCase();
       }
     }
-    updateMapOverlays(lastDensities);
+    updateMapOverlays(densities, calculatePredictions(densities), currentEmergency, heatmapEnabled);
   });
   cleanupFirebase.push(unListenEmerg);
 
@@ -759,14 +761,14 @@ export async function init(navigate) {
     toggle.addEventListener('change', (e) => {
       heatmapEnabled = e.target.checked;
       const predictions = calculatePredictions(densities);
-      updateMapOverlays(densities, predictions);
+      updateMapOverlays(densities, predictions, currentEmergency, heatmapEnabled);
     });
   }
 
   // ── 3-Second UI Pulse (TASK) ──
   const pulseInt = setInterval(() => {
     const predictions = calculatePredictions(densities);
-    updateMapOverlays(densities, predictions);
+    updateMapOverlays(densities, predictions, currentEmergency, heatmapEnabled);
     updateMetrics(densities);
   }, 3000);
   cleanupFirebase.push(() => clearInterval(pulseInt));

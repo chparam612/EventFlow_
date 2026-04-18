@@ -145,13 +145,13 @@ export function updateMapOverlays(densitiesData, predictions = {}, emergency = {
       const bounds = ZONE_BOUNDS[id];
       if (bounds) {
         // Number of points represents density
-        const numPoints = Math.floor(d * 40); 
+        const numPoints = Math.floor(d * 25); 
         for (let i = 0; i < numPoints; i++) {
           const lat = bounds.s + Math.random() * (bounds.n - bounds.s);
           const lng = bounds.w + Math.random() * (bounds.e - bounds.w);
           heatmapData.push({
             location: new window.google.maps.LatLng(lat, lng),
-            weight: d * 2 // Weighting points by density for smoother "glow"
+            weight: d * 1.2 // Tuning weight for smoother "glow" without over-saturation
           });
         }
       }
