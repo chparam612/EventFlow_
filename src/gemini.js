@@ -8,7 +8,28 @@ const GEMINI_KEY = 'YOUR_GEMINI_KEY_HERE';
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 /**
+ * Structured logging helper
+ * @param {'info'|'warn'|'error'} level 
+ * @param {string} message 
+ * @param {object} [data] 
+ */
+function log(level, message, data) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...(data && { data })
+  };
+  console[level === 'error' ? 'error' : 'log'](JSON.stringify(entry));
+}
+
+/**
  * Core API call with official System Instructions & JSON Schema support
+ * @param {string} prompt 
+ * @param {string} [systemInstruction] 
+ * @param {'text'|'json'} [responseType] 
+ * @param {number} [maxTokens] 
+ * @returns {Promise<string|null>}
  */
 async function callGemini(prompt, systemInstruction = "", responseType = "text", maxTokens = 500) {
   if (!GEMINI_KEY || GEMINI_KEY === 'YOUR_GEMINI_KEY_HERE') return null;
@@ -17,12 +38,34 @@ async function callGemini(prompt, systemInstruction = "", responseType = "text",
   const payload = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      temperature: 0.2, // Lower temp for more deterministic business logic
+      temperature: 0.1, // Near-deterministic for business logic
       maxOutputTokens: maxTokens,
-      topP: 0.95,
       responseMimeType: responseType === "json" ? "application/json" : "text/plain"
     }
   };
+
+  // Add formal JSON Schema for structured data (Service Upgrade)
+  if (responseType === "json") {
+    payload.generationConfig.responseSchema = {
+      type: "OBJECT",
+      properties: {
+        insights: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              type: { type: "STRING", enum: ["warning", "info", "action"] },
+              zone: { type: "STRING" },
+              message: { type: "STRING" },
+              action: { type: "STRING" }
+            },
+            required: ["type", "zone", "message", "action"]
+          }
+        }
+      },
+      required: ["insights"]
+    };
+  }
 
   if (systemInstruction) {
     payload.systemInstruction = { parts: [{ text: systemInstruction }] };
@@ -35,34 +78,57 @@ async function callGemini(prompt, systemInstruction = "", responseType = "text",
       body: JSON.stringify(payload)
     });
 
-    if (res.status === 429) return "Notice: AI rate limit reached. Fallback logic active.";
+    if (res.status === 429) {
+      // Return a special identifier for rate limits that the caller can catch
+      return "__RATE_LIMIT_FALLBACK__";
+    }
     if (!res.ok) throw new Error(`Gemini API Error: ${res.status}`);
 
     const data = await res.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     return text || null;
   } catch (e) {
-    console.warn('[Gemini] Execution failure:', e.message);
+    // Only log for unexpected errors, not rate limits or aborts
+    if (e.message !== 'Aborted') {
+      log('error', 'Gemini Request failure', { error: e.message });
+    }
     return null;
   }
 }
 
 // ─── Attendee Chat ─────────────────────────────────────────────────────────
-const ATTENDEE_SYSTEM = `You are EventFlow AI at Narendra Modi Stadium (Ahmedabad). 
-Role: Friendly crowd assistant.
-Rules: Friendly, max 2 short sentences, 1 clear recommendation. 
-Never cause panic. Use real locations: Gates A-I, Parking P1-P4.`;
+const ATTENDEE_SYSTEM = `You are EventFlow AI, the real-time crowd guide for Narendra Modi Stadium (NMS), Ahmedabad. 
+STRICT RULES:
+1. Fresh Analysis: Treat every question uniquely.
+2. Context Guard: ALWAYS use the [LIVE STADIUM DATA] provided.
+3. Relevant Only: Answer only the specific question asked.
+4. Fallback: If live data is missing, say "Live data unavailable right now — generally..."
+5. Concise: Max 2-3 short sentences.
+6. No Defaults: Never assume Gate B unless data confirms it.
+7. Format: Plain text only. NO markdown, NO bullet points.
+Stadium safety is your top priority.`;
 
-export async function askAttendee(message, crowdContext) {
-  const contextText = crowdContext ? `\nLive Crowd context: ${JSON.stringify(crowdContext)}` : "";
+export async function askAttendee(userMessage, ctx) {
+  const zones = ctx?.zones || {};
+  const liveContext = `
+[LIVE STADIUM DATA]
+Current time: ${ctx?.matchPhase || 'unknown'}
+User gate: ${ctx?.userGate || 'unknown'}
+User stand: ${ctx?.userStand || 'unknown'}
+Zone status: North=${zones.north || 0}, South=${zones.south || 0}, East=${zones.east || 0}, West=${zones.west || 0}
+Active nudge: ${ctx?.activeNudge || 'none'}
+[END DATA]
+
+User question: ${userMessage}
+`;
   
   try {
-    const reply = await callGemini(message + contextText, ATTENDEE_SYSTEM, "text", 200);
-    if (!reply || reply.includes("Notice:")) throw new Error("Fallback needed");
-    return reply;
+    const reply = await callGemini(liveContext, ATTENDEE_SYSTEM, "text", 200);
+    if (!reply || reply === "__RATE_LIMIT_FALLBACK__") throw new Error("Fallback mode");
+    // Clean markdown if AI included it anyway
+    return reply.replace(/[*_#`]/g, '').trim();
   } catch (e) {
-    // Intelligent Fallback Logic
-    return "Gate B (North) usually has the fastest entry. Follow staff for live directions.";
+    return "Please follow stadium signage and staff directions for the safest route. Live AI updates are temporarily delayed.";
   }
 }
 
@@ -77,8 +143,7 @@ export async function getAIInsights(densities) {
 
   try {
     const raw = await callGemini(prompt, CONTROL_SYSTEM, "json", 500);
-    
-    if (!raw || raw.includes("Notice:")) throw new Error("Fallback mode");
+    if (!raw || raw === "__RATE_LIMIT_FALLBACK__") throw new Error("Fallback mode");
     
     const parsed = JSON.parse(raw);
     if (parsed.insights) return parsed;

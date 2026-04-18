@@ -164,3 +164,24 @@ export function updateMapOverlays(densitiesData, predictions = {}, emergency = {
     heatmapLayer.setMap(heatmapEnabled ? mapInstance : null);
   }
 }
+
+/**
+ * Cleanup Map Resources
+ * Prevents memory leaks by releasing the map instance and overlays.
+ */
+export function cleanupMap() {
+  if (mapInstance) {
+    // Clear heatmap
+    if (heatmapLayer) {
+      heatmapLayer.setMap(null);
+      heatmapLayer = null;
+    }
+    // Clear zone rectangles
+    Object.values(zoneRectangles).forEach(rect => rect.setMap(null));
+    zoneRectangles = {};
+    
+    // Clear markers/advanced markers is usually handled by mapInstance cleanup
+    // in modern API if we lose the reference.
+    mapInstance = null;
+  }
+}

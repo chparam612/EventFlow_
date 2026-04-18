@@ -7,13 +7,14 @@ import {
   writeZone, pushInstruction, pushNudge,
   listenZones, listenAllStaff, listenEmergency, setEmergencyStatus
 } from '/src/firebase.js';
+import { trackEvent, trackPeak } from '/src/telemetry.js';
 import {
   simulateTick, setTick, getTick, getTickLabel,
   getZoneDensity, getZoneStatus, getStatusColor, ZONES
 } from '/src/simulation.js';
 import { getAIInsights } from '/src/gemini.js';
 import { predictFutureDensity, detectSurgeRisk } from '/src/predictiveEngine.js';
-import { initMap, updateMapOverlays, ZONE_BOUNDS } from './MapController.js';
+import { initMap, updateMapOverlays, ZONE_BOUNDS, cleanupMap } from './MapController.js';
 import { updateAnalytics, renderPredictiveAlerts } from './AnalyticsStore.js';
 import { rankBestExit } from '/src/evacuationEngine.js';
 import { calculateEvacuationRoutes, getEmergencyMessage } from '/src/emergencyEngine.js';
@@ -23,6 +24,22 @@ let simInterval = null;
 let aiInterval = null;
 let nudgesSent = 0;
 let cleanupFirebase = [];
+
+/**
+ * Structured logging helper
+ * @param {'info'|'warn'|'error'} level 
+ * @param {string} message 
+ * @param {object} [data] 
+ */
+function log(level, message, data) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...(data && { data })
+  };
+  console[level === 'error' ? 'error' : 'log'](JSON.stringify(entry));
+}
 
 export function render() {
   return `
@@ -395,7 +412,14 @@ export function render() {
   </div>`;
 }
 
+/**
+ * Initialize the Control Room dashboard
+ * @param {Function} navigate - Navigation callback
+ * @returns {Promise<Function>} Cleanup function
+ */
 export async function init(navigate) {
+  try {
+  trackEvent('DASHBOARD_INIT', { panel: 'CONTROL' });
   // ── Auth guard ──
   const user = await getCurrentUser();
   if (!user || !isControlUser(user)) { navigate('/control-login'); return; }
@@ -464,23 +488,26 @@ export async function init(navigate) {
     const el = document.getElementById('staff-list');
     if (!el) return;
     const entries = Object.entries(staffData);
+    
+    // Update online count
+    const online = entries.filter(([, s]) => s.online !== false);
+    const countEl = document.getElementById('ctrl-staff-count');
+    if (countEl) countEl.textContent = online.length;
+
     if (entries.length === 0) {
       el.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;">No staff online</div>';
-      document.getElementById('ctrl-staff-count').textContent = '0';
       return;
     }
-    const online = entries.filter(([, s]) => s.online !== false);
-    document.getElementById('ctrl-staff-count').textContent = online.length;
-    el.innerHTML = entries.map(([uid, s]) => {
-      const color = s.status === 'crowded' ? '#FF4757' : (s.status === 'clear' ? '#00C49A' : 'var(--text-muted)');
-      const zone = ZONES[s.zone]?.name || s.zone || 'Unknown';
-      const ago = s.updatedAt ? Math.round((Date.now() - s.updatedAt) / 60000) : '?';
-      return `
-        <div style="
-          background:var(--bg-card2);border:1px solid var(--border);
-          border-radius:10px;padding:10px 12px;cursor:pointer;transition:all 0.2s;"
-          onclick="document.getElementById('ctrl-zone-sel').value='${s.zone || 'north'}'"
-          title="Click to dispatch to ${zone}">
+
+    // Efficient Patching: Only update changed staff nodes
+    requestAnimationFrame(() => {
+      entries.forEach(([uid, s]) => {
+        let node = document.getElementById(`staff-node-${uid}`);
+        const color = s.status === 'crowded' ? '#FF4757' : (s.status === 'clear' ? '#00C49A' : 'var(--text-muted)');
+        const zone = ZONES[s.zone]?.name || s.zone || 'Unknown';
+        const ago = s.updatedAt ? Math.round((Date.now() - s.updatedAt) / 60000) : '?';
+        
+        const content = `
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="width:7px;height:7px;border-radius:50%;
               background:${color};display:inline-block;flex-shrink:0;"></span>
@@ -490,9 +517,35 @@ export async function init(navigate) {
               <div style="font-size:0.7rem;color:var(--text-muted);">
                 ${s.status || 'offline'} · ${ago}m ago</div>
             </div>
-          </div>
-        </div>`;
-    }).join('');
+          </div>`;
+
+        if (node) {
+          if (node.dataset.status !== s.status || node.dataset.zone !== s.zone) {
+            node.innerHTML = content;
+            node.dataset.status = s.status;
+            node.dataset.zone   = s.zone;
+          }
+        } else {
+          node = document.createElement('div');
+          node.id = `staff-node-${uid}`;
+          node.dataset.status = s.status;
+          node.dataset.zone   = s.zone;
+          node.style.cssText = "background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;transition:all 0.2s;margin-bottom:6px;";
+          node.onclick = () => { document.getElementById('ctrl-zone-sel').value = s.zone || 'north'; };
+          node.innerHTML = content;
+          if (el.innerHTML.includes('Waiting for staff')) el.innerHTML = '';
+          el.appendChild(node);
+        }
+      });
+
+      // Remove offline staff nodes that aren't in the data anymore
+      Array.from(el.children).forEach(child => {
+        if (child.id && child.id.startsWith('staff-node-')) {
+          const uid = child.id.replace('staff-node-', '');
+          if (!staffData[uid]) child.remove();
+        }
+      });
+    });
   }
 
   async function renderAIInsights(densities) {
@@ -565,7 +618,9 @@ export async function init(navigate) {
         `${name} is getting crowded. Alternative routes are available nearby.`
       );
       
-      console.log('Auto-alert sent for:', name, pct + '%');
+      
+      log('info', 'Auto-alert triggered', { zone: name, density: pct });
+      trackPeak(id, densities[id]);
     }
   }
 
@@ -684,9 +739,9 @@ export async function init(navigate) {
       modal.style.display = 'none';
       await setEmergencyStatus(true, type, zone);
       
+      
       // TASK 6: Logging
-      console.log("Emergency Activated:", type);
-      console.log("Zone Blocked:", zone);
+      log('info', 'Emergency Activated', { type, zone });
       
       // Auto-broadcast 
       const routes = calculateEvacuationRoutes(ZONES, densities, zone);
@@ -696,7 +751,7 @@ export async function init(navigate) {
       await pushInstruction(zone, msg, 'CONTROL');
       await pushNudge(zone, msg);
     } catch (error) {
-      console.error("Emergency activation error:", error);
+      log('error', 'Emergency activation error', { error: error.message });
     }
   });
 
@@ -767,9 +822,12 @@ export async function init(navigate) {
 
   // ── 3-Second UI Pulse (TASK) ──
   const pulseInt = setInterval(() => {
-    const predictions = calculatePredictions(densities);
-    updateMapOverlays(densities, predictions, currentEmergency, heatmapEnabled);
-    updateMetrics(densities);
+    // Decouple Map Rendering to prevent blocking message channel
+    setTimeout(() => {
+      const predictions = calculatePredictions(densities);
+      updateMapOverlays(densities, predictions, currentEmergency, heatmapEnabled);
+      updateMetrics(densities);
+    }, 0);
   }, 3000);
   cleanupFirebase.push(() => clearInterval(pulseInt));
 
@@ -784,12 +842,25 @@ export async function init(navigate) {
   // ── Send to Staff ──
   document.getElementById('ctrl-send-staff')?.addEventListener('click', async () => {
     const zone = document.getElementById('ctrl-zone-sel')?.value;
-    const msg  = document.getElementById('ctrl-instr-text')?.value?.trim();
+    const msgEl = document.getElementById('ctrl-instr-text');
+    const msg   = msgEl?.value?.trim();
     if (!msg) return;
-    await pushInstruction(zone, msg, user.email);
+
+    // OPTIMISTIC UI: Show success immediately
     const conf = document.getElementById('ctrl-send-confirm');
-    if (conf) { conf.style.display = 'block'; setTimeout(() => conf.style.display = 'none', 2500); }
-    document.getElementById('ctrl-instr-text').value = '';
+    if (conf) { 
+      conf.textContent = '⚡ Sending...'; 
+      conf.style.display = 'block'; 
+    }
+    msgEl.value = ''; // Clear immediately
+
+    const start = Date.now();
+    await pushInstruction(zone, msg, user.email, 'CONTROL');
+    
+    if (conf) { 
+      conf.textContent = `✓ Sent in ${Date.now() - start}ms`;
+      setTimeout(() => conf.style.display = 'none', 2000); 
+    }
   });
 
   // ── Nudge attendees ──
@@ -820,7 +891,11 @@ export async function init(navigate) {
     if (aiInterval) clearInterval(aiInterval);
     cleanupFirebase.forEach(fn => { try { fn(); } catch (e) {} });
     cleanupFirebase = [];
-    zoneRectangles = {};
-    mapInstance = null;
+    cleanupMap();
   };
+ } catch (e) {
+  log('error', 'Dashboard init failed', { error: e.message });
+  navigate('/control-login');
+  return () => {};
+ }
 }

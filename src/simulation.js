@@ -44,6 +44,11 @@ export function setTick(minutes) {
 
 export function getTick() { return currentTick; }
 
+export function getCurrentEvent() {
+  const pastEvents = TIMELINE.filter(e => currentTick >= e.t);
+  return pastEvents.length > 0 ? pastEvents[pastEvents.length - 1].event : 'gates_open';
+}
+
 export function getTickLabel() {
   const base = 18 * 60; // 18:00
   const total = (base + currentTick) % (24 * 60);
@@ -90,6 +95,12 @@ export function getZoneDensity() {
 export function getLastDensity() { return { ..._lastDensity }; }
 
 // ─── Status Helpers ────────────────────────────────────────────────────────
+/**
+ * Categorizes a density value into a status label.
+ * @param {number} density - Density value from 0.0 to 1.0
+ * @param {boolean} [isBlocked=false] - Whether the zone is blocked
+ * @returns {'blocked'|'critical'|'busy'|'clear'}
+ */
 export function getZoneStatus(density, isBlocked = false) {
   if (isBlocked) return 'blocked';
   if (density >= 0.8) return 'critical';
@@ -112,6 +123,12 @@ export function getStatusEmoji(status) {
 }
 
 // ─── Gate Recommendation ───────────────────────────────────────────────────
+/**
+ * Recommends an optimal gate for a stadium section based on live congestion.
+ * @param {string} section - Stadium section (north, south, east, west)
+ * @param {object} density - Live density map
+ * @returns {{gate: string, density: number, pct: number, waitMin: number}}
+ */
 export function getRecommendedGate(section, density) {
   const primary = { north: 'B', south: 'G', east: 'D', west: 'F' };
   const alternate = { north: 'A', south: 'H', east: 'C', west: 'E' };
@@ -175,4 +192,17 @@ export function getNudgeType() {
   if (currentTick >= 235 && currentTick <= 250) return 'break';
   if (currentTick >= 410 && currentTick <= 430) return 'end';
   return null;
+}
+
+/**
+ * Validate if a zone ID is valid based on the stadium configuration.
+ * @param {string} zoneId 
+ * @returns {string} 
+ */
+export function validateZoneId(zoneId) {
+  const validZones = Object.keys(ZONES);
+  if (!validZones.includes(zoneId)) {
+    throw new Error('Invalid zone ID: ' + zoneId);
+  }
+  return zoneId;
 }

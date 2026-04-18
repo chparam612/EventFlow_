@@ -3,12 +3,22 @@
  * Provides real-time metrics for crowd behavior, density, and wait times.
  */
 
+/**
+ * Sums up the total number of fans across all provided zones.
+ * @param {object[]} zones - Array of zone objects
+ * @returns {number} Total visitor count
+ */
 export function calculateTotalVisitors(zones) {
   return zones.reduce((total, zone) => {
     return total + (zone.currentFans || 0);
   }, 0);
 }
 
+/**
+ * Calculates the average density percentage across all valid zones.
+ * @param {object[]} zones - Array of zone objects
+ * @returns {number} Average density (0-100)
+ */
 export function calculateAverageDensity(zones) {
   if (!zones || zones.length === 0) return 0;
   let totalPercent = 0;

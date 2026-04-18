@@ -12,7 +12,8 @@
     },
     "instructions": {
       ".read": "auth != null",
-      ".write": "auth != null && auth.token.email.contains('control')"
+      ".write": "auth != null && auth.token.email.contains('control')",
+      ".indexOn": ["zoneId"]
     },
     "nudges": {
       ".read": "auth != null",
@@ -27,6 +28,10 @@
     "feedback": {
       ".write": "auth != null",
       ".read": "auth != null && auth.token.email.contains('control')"
+    },
+    "emergency": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.email.contains('control')"
     }
   }
 }

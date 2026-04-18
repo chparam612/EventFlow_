@@ -348,6 +348,20 @@
     .skip-link:focus {
       top: 10px;
     }
+    #connection-badge {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 8px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 1000;
+    }
   </style>
 
   <!-- Google Maps: window.initMap MUST be defined before the script tag -->
@@ -368,11 +382,23 @@
 
 <body>
   <a href="#main-content" class="skip-link">Skip to Content</a>
-  <div id="app">
-    <div class="page-loader">
-      <div class="spinner spinner-light" style="width:36px;height:36px;"></div>
-    </div>
+  <div id="connection-badge" aria-live="polite">
+    <span style="width:8px; height:8px; background:var(--green); border-radius:50%;"></span>
+    <span>Connected</span>
   </div>
+  <nav class="sr-only" aria-label="Main Navigation">
+    <ul>
+      <li><a href="/">Home</a></li>
+    </ul>
+  </nav>
+
+  <main id="main-content">
+    <div id="app">
+      <div class="page-loader">
+        <div class="spinner spinner-light" style="width:36px;height:36px;"></div>
+      </div>
+    </div>
+  </main>
 
   <script type="module">
     import { initRouter } from '/src/router.js';

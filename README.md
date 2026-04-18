@@ -4,10 +4,10 @@
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-eventflow--4f04a.web.app-orange)](https://eventflow-4f04a.web.app)
 [![GitHub](https://img.shields.io/badge/GitHub-chparam612%2FEventflow__n-blue)](https://github.com/chparam612/Eventflow_n)
-[![Tests](https://img.shields.io/badge/Tests-61%20Passing-brightgreen)](#running-tests)
+[![Tests](https://img.shields.io/badge/Tests-93%20Passing-brightgreen)](#running-tests)
 [![Firebase](https://img.shields.io/badge/Firebase-v10.8.0-yellow)](https://firebase.google.com)
 
-✔ **61 automated tests** — Core logic, Firebase config integrity, AI fallback, Accessibility (aria-live + sr-only + focus-visible), Dijkstra Routing, Graph Architecture  
+✔ **93 automated tests** — Core logic, Firebase config integrity, AI fallback, JSDOM Accessibility, Dijkstra Routing, Cloud Function logic
 ✔ **Zero structural duplicate files · Fully Modular · AST Verified imports**
 ✔ **Repo size < 1 MB · Single branch (main) · Public · Google Services integrated**
 
@@ -68,10 +68,13 @@ Three panels, one live data loop — every action in the control room reflects i
 | Service | Integration |
 |---------|-------------|
 | **Firebase Realtime Database** | Live 3-panel sync — zones, staff, instructions, nudges |
+| **Cloud Firestore** | Persistent Event Telemetry — simulation peaks & error tracking |
+| **Firebase Cloud Functions** | Serverless automation & BigQuery Telemetry Pipeline |
+| **BigQuery (Simulated)** | Long-term crowd trend analysis via Cloud Function streaming |
 | **Firebase Authentication** | Anonymous (fans) + Email/Password (staff/control) |
 | **Firebase Hosting** | Edge-cached PWA with SPA rewrite rules |
-| **Google Maps JS API** | Satellite view of NMS with dynamic Density-Aware Dijkstra Routing |
-| **Gemini 2.0 Flash API** | AI chat for fans + automated crowd insights for control room |
+| **Google Maps JS API** | HeatmapLayer visualization + Advanced Mapping |
+| **Gemini 2.0 Flash API** | AI insights with strictly-typed JSON Schema Mode |
 | **Google Fonts** | DM Sans + Space Grotesk typography |
 
 ---
@@ -180,11 +183,12 @@ npm test
 
 Expected result:
 ```
-✓ 50 Core Engine Tests Passed
+✓ 66 Core Engine Tests Passed
 ✓ 6 Navigation Integration Tests Passed
-✓ 5 Navigation Audit Tests Passed
+✓ 7 Navigation Audit Tests Passed
+✓ 14 JSDOM Accessibility Audits Passed
 
-  Results: 61/61 tests passed
+  Results: 93/93 tests passed
 🎉 All tests passed — EventFlow V2 is stable.
 ```
 

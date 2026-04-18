@@ -9,6 +9,22 @@ import {
 } from '/src/firebase.js';
 import { setStaffOverride, clearStaffOverride, ZONES } from '/src/simulation.js';
 
+/**
+ * Structured logging helper
+ * @param {'info'|'warn'|'error'} level 
+ * @param {string} message 
+ * @param {object} [data] 
+ */
+function log(level, message, data) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...(data && { data })
+  };
+  console[level === 'error' ? 'error' : 'log'](JSON.stringify(entry));
+}
+
 export function render() {
   return `
   <div style="
@@ -189,7 +205,13 @@ export function render() {
   </div>`;
 }
 
+/**
+ * Initialize the Staff Panel dashboard
+ * @param {Function} navigate - Navigation callback
+ * @returns {Promise<Function>} Cleanup function
+ */
 export async function init(navigate) {
+  try {
   // ── Auth guard ──
   const user = await getCurrentUser();
   if (!user || !isStaffUser(user)) { navigate('/staff-login'); return; }
@@ -211,6 +233,9 @@ export async function init(navigate) {
   const listenFn = await import('/src/firebase.js').then(m => m.listenInstructions);
   cleanupInstructions = listenFn(zone, (items) => {
     const latest = items[0];
+    if (latest && latest.sentAt) {
+      log('info', 'Command Received', { latency: Date.now() - latest.sentAt });
+    }
     const textEl = document.getElementById('instruction-text');
     const ackBtn = document.getElementById('ack-btn');
     if (!textEl) return;
@@ -228,12 +253,29 @@ export async function init(navigate) {
   });
 
   // ── Acknowledge button ──
-  document.getElementById('ack-btn')?.addEventListener('click', function () {
-    this.textContent = '✓ Acknowledged';
-    this.style.background = 'rgba(0,196,154,0.05)';
-    this.style.color = 'var(--text-muted)';
+  document.getElementById('ack-btn')?.addEventListener('click', async function () {
+    const instrId = this.dataset.id;
+    const start = Date.now();
+    
+    // Optimistic UI
+    this.textContent = '⚡ Checking in...';
     this.disabled = true;
-    document.getElementById('instruction-text').style.color = 'var(--text-muted)';
+
+    try {
+      const { pushInstruction } = await import('/src/firebase.js');
+      // In this v2 simplified model, we'll just push a status update "ACK" 
+      // which the control room's staff list will reflect via their status
+      await writeStaffStatus(uid, zone, 'clear', true); 
+      
+      this.textContent = '✓ Acknowledged';
+      this.style.background = 'rgba(0,196,154,0.05)';
+      this.style.color = 'var(--text-muted)';
+      document.getElementById('instruction-text').style.color = 'var(--text-muted)';
+      log('info', 'Command ACK Sent', { latency: Date.now() - start });
+    } catch (e) {
+      this.disabled = false;
+      this.textContent = 'Retry ACK';
+    }
   });
 
   // ── Zone toggle ──
@@ -260,7 +302,10 @@ export async function init(navigate) {
       btnClear.style.color         = 'var(--text-secondary)';
       setStaffOverride(zone, 'crowded');
     }
-    await writeStaffStatus(uid, zone, status, true);
+    // OPTIMISTIC UPDATES: Fire and forget write
+    writeStaffStatus(uid, zone, status, true).catch(err => {
+      log('warn', 'Status sync failed', { error: err.message });
+    });
   };
 
   setStatus('clear'); // default
@@ -337,7 +382,12 @@ export async function init(navigate) {
   // ── Cleanup ──
   return () => {
     if (cleanupInstructions) cleanupInstructions();
-    if (unListenEmerg) unListenEmerg();
+    cleanupFirebase = [];
     writeStaffStatus(uid, zone, 'offline', false).catch(() => {});
   };
+ } catch (e) {
+  log('error', 'Staff dashboard init failed', { error: e.message });
+  navigate('/staff-login');
+  return () => {};
+ }
 }

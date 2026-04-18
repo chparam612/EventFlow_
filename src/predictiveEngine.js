@@ -7,6 +7,16 @@
  * FUNCTION 1 — predictFutureDensity(zone)
  * Logic: futureFans = currentFans + (entryRate - exitRate) × 10
  */
+/**
+ * Calculate the predicted crowd density for a zone 10 minutes into the future.
+ * Logic: futureFans = currentFans + (entryRate - exitRate) × 10
+ * @param {object} zone - The zone data object
+ * @param {number} [zone.entryRate=5] - Fans entering per minute
+ * @param {number} [zone.exitRate=3] - Fans leaving per minute
+ * @param {number} [zone.capacity=10000] - Total fan capacity of the zone
+ * @param {number} [zone.currentFans=0] - Current number of fans in the zone
+ * @returns {{futureFans: number, predictedPercent: number}}
+ */
 export function predictFutureDensity(zone) {
   const minutesAhead = 10;
   
@@ -33,6 +43,11 @@ export function predictFutureDensity(zone) {
 /**
  * FUNCTION 2 — detectSurgeRisk(predictedPercent)
  * Categorizes risk levels based on thresholds.
+ */
+/**
+ * Categorizes risk levels based on predicted density thresholds.
+ * @param {number} predictedPercent - The predicted density in percentage (0-100)
+ * @returns {{risk: boolean, level: 'HIGH'|'MEDIUM'|'LOW', percent: number}}
  */
 export function detectSurgeRisk(predictedPercent) {
   let risk = false;

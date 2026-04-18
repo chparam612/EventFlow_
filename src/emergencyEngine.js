@@ -7,6 +7,12 @@
  * FUNCTION 1 — activateEmergency(type, zone)
  * Marks a zone as blocked and triggers timestamped state.
  */
+/**
+ * Marks a zone as blocked and triggers timestamped state.
+ * @param {'FIRE'|'MEDICAL'|'SECURITY'} type - The type of emergency
+ * @param {string} zoneId - The ID of the affected zone
+ * @returns {{active: boolean, type: string, zone: string, timestamp: number}}
+ */
 export function activateEmergency(type, zoneId) {
   const allowedTypes = ["FIRE", "MEDICAL", "SECURITY"];
   if (!allowedTypes.includes(type)) {
@@ -25,6 +31,14 @@ export function activateEmergency(type, zoneId) {
  * FUNCTION 2 — calculateEvacuationRoutes(zones, blockedZoneId)
  * Finds safest alternative zones.
  * Logic: Exclude blocked zone, prioritize low density zones.
+ */
+/**
+ * Finds the safest alternative zones for evacuation.
+ * Logic: Exclude the blocked zone and prioritize low-density zones.
+ * @param {object} zones - The global zones configuration
+ * @param {object} densities - Current live densities for all zones
+ * @param {string} blockedZoneId - The ID of the zone that is currently blocked
+ * @returns {{safeRoutes: string[]}}
  */
 export function calculateEvacuationRoutes(zones, densities, blockedZoneId) {
   const candidates = Object.keys(zones).filter(id => id !== blockedZoneId && id !== 'parking' && id !== 'gates');

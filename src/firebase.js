@@ -7,9 +7,8 @@ import {
   getDatabase, ref, set, push, onValue,
   query, orderByChild, equalTo, limitToLast, off
 } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
-import { 
-  getFirestore, collection, addDoc, serverTimestamp 
-} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, signInAnonymously, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 
 // ─── Firebase Config ───────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -26,18 +25,41 @@ const firebaseConfig = {
 // ─── App Init ──────────────────────────────────────────────────────────────
 export const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const fs = getFirestore(app);
+const auth = getAuth(app);
+const firestore = getFirestore(app);
 
-// ─── Write Guard ──────────────────────────────────────────────────────────
+/**
+ * Structured logging helper
+ * @param {'info'|'warn'|'error'} level 
+ * @param {string} message 
+ * @param {object} [data] 
+ */
+function log(level, message, data) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...(data && { data })
+  };
+  console[level === 'error' ? 'error' : 'log'](JSON.stringify(entry));
+}
+
+import { validateZoneId } from './simulation.js';
+
 const _writing = new Set();
 
+/**
+ * Prevent concurrent writes to the same key
+ * @param {string} key 
+ * @param {Function} fn 
+ */
 async function safeWrite(key, fn) {
   if (_writing.has(key)) return;
   _writing.add(key);
   try {
     await fn();
   } catch (e) {
-    console.warn('[Firebase] Write failed:', key, e.message);
+    log('warn', 'Firebase write failed', { key, error: e.message });
   } finally {
     _writing.delete(key);
   }
@@ -47,18 +69,21 @@ async function safeWrite(key, fn) {
 
 /**
  * Log a critical incident to Firestore for historical audit
+ * @param {string} type 
+ * @param {string} zone 
+ * @param {string} description 
  */
 export async function logIncident(type, zone, description) {
   try {
-    await addDoc(collection(fs, 'incidents'), {
+    await addDoc(collection(firestore, 'incidents'), {
       type,
-      zone,
+      zone: validateZoneId(zone),
       description,
       timestamp: serverTimestamp(),
       severity: 'CRITICAL'
     });
   } catch (e) {
-    console.warn('[Firestore] Incident log failed:', e.message);
+    log('error', 'Firestore incident log failed', { error: e.message, type, zone });
   }
 }
 
@@ -73,26 +98,52 @@ export async function writeZone(zoneId, density, status) {
 }
 
 export async function writeStaffStatus(uid, zone, status, online = true) {
-  await safeWrite('staff:' + uid, () =>
-    set(ref(db, 'staff/' + uid), {
-      zone,
-      status,
-      online,
-      updatedAt: Date.now()
-    })
-  );
+  try {
+    const ts = Date.now();
+    await safeWrite('staff:' + uid, () =>
+      set(ref(db, 'staff/' + uid), {
+        zone: validateZoneId(zone),
+        status,
+        online,
+        updatedAt: ts
+      })
+    );
+    log('info', 'Status Sync Success', { role: 'STAFF', latency: Date.now() - ts });
+  } catch (e) {
+    log('error', 'writeStaffStatus failed', { error: e.message, uid });
+  }
 }
 
-export async function pushInstruction(zoneId, message, sentBy) {
-  await safeWrite('instr:' + zoneId + ':' + Date.now(), () =>
-    push(ref(db, 'instructions'), {
-      zoneId,
+/**
+ * Push an instruction message to the database for staff consumption
+ * @param {string} zoneId 
+ * @param {string} message 
+ * @param {string} sentBy 
+ * @param {string} [role] 
+ */
+export async function pushInstruction(zoneId, message, sentBy, role = 'CONTROL') {
+  try {
+    const ts = Date.now();
+    const data = {
+      zoneId: validateZoneId(zoneId),
       message,
       sentBy,
-      sentAt: Date.now(),
-      acked: []
-    })
-  );
+      senderRole: role,
+      sentAt: ts,
+      acked: [],
+      status: 'pending'
+    };
+
+    log('info', 'Command Dispatch Started', { zoneId, sentBy });
+
+    await safeWrite('instr:' + zoneId + ':' + ts, async () => {
+      const newRef = push(ref(db, 'instructions'));
+      await set(newRef, data);
+      log('info', 'Command Dispatch Confirmed', { latency: Date.now() - ts });
+    });
+  } catch (e) {
+    log('error', 'pushInstruction failed', { error: e.message, zoneId });
+  }
 }
 
 export async function pushNudge(zoneId, message) {
@@ -121,7 +172,7 @@ export async function saveFeedback(data) {
       submittedAt: Date.now()
     });
   } catch (e) {
-    console.warn('[Firebase] Feedback save failed:', e.message);
+    log('error', 'Feedback save failed', { error: e.message });
   }
 }
 
@@ -136,13 +187,14 @@ export async function setEmergencyStatus(active, type = null, zone = null) {
         timestamp: active ? timestamp : null
       })
     );
-    
+
     // Log to Firestore if active
     if (active) {
       await logIncident(type, zone, `Emergency activated by control room`);
     }
+    log('info', 'Emergency status updated', { active, type, zone });
   } catch (error) {
-    console.error("Emergency write failed:", error);
+    log('error', 'Emergency write failed', { error: error.message });
   }
 }
 
@@ -197,4 +249,20 @@ export function listenEmergency(cb) {
     }
   });
   return () => off(r);
+}
+
+/**
+ * Persistent Telemetry
+ * Writes performance/simulation metrics to Firestore (5th Google Service)
+ * @param {object} data 
+ */
+export async function sendTelemetry(data) {
+  try {
+    await addDoc(collection(firestore, 'telemetry'), {
+      ...data,
+      timestamp: serverTimestamp()
+    });
+  } catch (e) {
+    log('warn', 'Telemetry sync failed locally', { error: e.message });
+  }
 }

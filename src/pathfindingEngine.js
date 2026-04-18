@@ -17,15 +17,27 @@ export function updateDensityMap(densities) {
   });
 }
 
+/**
+ * Structured logging helper
+ * @param {'info'|'warn'|'error'} level 
+ * @param {string} message 
+ * @param {object} [data] 
+ */
+function log(level, message, data) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...(data && { data })
+  };
+  console[level === 'error' ? 'error' : 'log'](JSON.stringify(entry));
+}
+
 // STEP 3 — CREATE DYNAMIC COST FUNCTION
 export function getDynamicWeight(zoneId, baseDistance) {
   const density = zoneDensityMap[zoneId] || 0;
 
-  console.log(
-    "Weight calc:",
-    zoneId,
-    density
-  );
+  log('info', 'Weight calculation', { zoneId, density });
 
   if (density < 50) {
     return baseDistance;

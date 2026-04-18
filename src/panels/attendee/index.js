@@ -22,6 +22,7 @@ let answers = {};
 let currentDensities = {};
 let cleanupFns = [];
 let nudgeShown = false;
+let lastNudgeText = 'none';
 
 const INTAKE_QUESTIONS = [
   {
@@ -818,6 +819,7 @@ function attachScreenListeners(name) {
     const unNudge = listenNudges((nudges) => {
       if (nudges.length > 0) {
         const latest = nudges[0];
+        lastNudgeText = latest.message;
         const el = document.getElementById('during-nudge');
         const txt = document.getElementById('during-nudge-text');
         if (el && txt) {
@@ -1023,8 +1025,18 @@ export async function init(navigate) {
   });
   cleanupFns.push(unZones);
 
-  // Init AI chat
-  initAIChat(() => currentDensities);
+  // Init AI chat with full behavioral context
+  initAIChat(() => {
+    const section = getSectionFromAnswers();
+    const gateInfo = getRecommendedGate(section, currentDensities);
+    return {
+      zones: currentDensities,
+      userGate: gateInfo.gate,
+      userStand: ZONES[section]?.name || 'North Stand',
+      matchPhase: getCurrentEvent(),
+      activeNudge: lastNudgeText
+    };
+  });
 
   function updateGlobalDensityBadge() {
     const el = document.getElementById('att-global-density');
