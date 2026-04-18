@@ -1,76 +1,248 @@
 # EventFlow V2 — Smart Crowd Management for NMS
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Firebase%20Hosting-orange)](https://studio-5460981965-b6a76.web.app)
+> Built for **Google Prompt Wars 2026** · Narendra Modi Stadium, Ahmedabad · 132,000 capacity
 
-EventFlow V2 is a complete crowd management simulation and guiding tool built for **Narendra Modi Stadium (NMS)** — the 132,000 capacity cricket venue in Ahmedabad. Developed for **Google Prompt Wars 2026**.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-eventflow--4f04a.web.app-orange)](https://eventflow-4f04a.web.app)
+[![GitHub](https://img.shields.io/badge/GitHub-chparam612%2FEventflow__n-blue)](https://github.com/chparam612/Eventflow_n)
+[![Tests](https://img.shields.io/badge/Tests-61%20Passing-brightgreen)](#running-tests)
+[![Firebase](https://img.shields.io/badge/Firebase-v10.8.0-yellow)](https://firebase.google.com)
 
-## Problem Statement
-Managing a massive 132k capacity crowd during high-stakes cricket matches leads to bottlenecks, safety hazards, and poor attendee experiences. 
+✔ **61 automated tests** — Core logic, Firebase config integrity, AI fallback, Accessibility (aria-live + sr-only + focus-visible), Dijkstra Routing, Graph Architecture  
+✔ **Zero structural duplicate files · Fully Modular · AST Verified imports**
+✔ **Repo size < 1 MB · Single branch (main) · Public · Google Services integrated**
 
-## Our Vertical: Physical Event Experience
-Creating a smooth, stress-free flow for hundreds of thousands of people moving through physical infrastructure.
+---
 
-## Core Insight (trust-first philosophy)
-When attendees trust the venue's live instructions, they cooperate rather than rush. Transparent, multi-lingual, easily accessible directions defuse panic.
+## 🌐 Live URLs
 
-## Biomimicry Approach
-- **Ant Routing**: Dynamically updating paths based on pheromonal (density) feedback.
-- **Fish Schooling**: Moving crowds in cohesive blocks with local interactions.
-- **Bee Waggle Dance**: Communicating the best gates and exit plans via clear, actionable paths.
+| Panel | URL |
+|-------|-----|
+| 🏠 Landing | [eventflow-4f04a.web.app](https://eventflow-4f04a.web.app/) |
+| 🎟️ Fan/Attendee | [/attendee](https://eventflow-4f04a.web.app/attendee) |
+| 🧑‍✈️ Staff | [/staff-login](https://eventflow-4f04a.web.app/staff-login) |
+| 🖥️ Control Room | [/control-login](https://eventflow-4f04a.web.app/control-login) |
+| 🗺️ Navigation Map | [/attendee-navigation.html](https://eventflow-4f04a.web.app/attendee-navigation.html) |
 
-## System Architecture
-A three-panel sync loop:
-1. **Attendee Panel**: Intake, customized arrival plan, step-by-step escort, and multi-lingual Gemini AI assistant.
-2. **Staff Panel**: One-tap zone reporting ('MY ZONE IS CLEAR' / 'CROWDED') mapping directly to the live Firebase DB.
-3. **Control Room**: Command center tracking live Google Maps overlays, simulation data, dispatching instructions, and generating AI-driven insights from crowd density vectors.
+---
 
-## Google Services Used
-- **Firebase Realtime Database** — live 3-panel sync
-- **Firebase Authentication** — role-based access
-- **Firebase Hosting** — edge-cached PWA
-- **Google Maps JS API** — real satellite NMS view with zone overlays
-- **Google Gemini API** — AI chat + control room insights
-- **Google Translate API** — 5 language support (simulated via static maps in this demo logic)
+## 🎯 Chosen Vertical: Physical Event Experience
 
-## How It Works
-- **Pre-event**: Fans map arrival time and transit style on entry.
-- **Arrival**: App shows live recommendations for gates A-I over real map bounds.
-- **During**: Control room nudges fans for food or breaks based off AI insights.
-- **Exit**: Live calculation outputs "Leave Now" vs "Wait 15 Mins".
-- **Feedback**: Post-game analytics pushed back to staff.
+EventFlow targets cricket match days at Narendra Modi Stadium as the primary use case:
 
-## Demo Instructions (5-minute path for judge)
-1. Go to root `/` -> Choose language, tap "Enter as Fan".
-2. Fill the intake -> See recommended Gate B path.
-3. Tap "AI Chat" (floating button) -> ask "Nearest restroom?" -> get a Gemini 2.0 response.
-4. **Open a new tab** -> `/staff-login` -> Use `staff@eventflow.demo` / `Staff@123` -> Tap "MY ZONE IS CROWDED".
-5. **Open a new tab** -> `/control-login` -> Use `control@eventflow.demo` / `Control@123` -> See map turn red! Send an instruction down to staff.
+- **Pre-arrival planning** — reduce gate rush by distributing crowd before they arrive
+- **In-venue navigation** — guide fans step-by-step to their seat without confusion
+- **Exit orchestration** — stagger 132K departure into 9 gate flows using AI ranking
+- **Staff coordination** — instant instruction sync from control room, no radio delays
 
-## Login Credentials
-- **Attendee**: tap "Enter as Fan" (no login needed - anonymous auth)
-- **Staff**: `staff@eventflow.demo` / `Staff@123`
-- **Control**: `control@eventflow.demo` / `Control@123`
+---
 
-## Assumptions
-- Staff members carry mobile devices and have cell service.
-- Attendees can access the PWA via printed QR codes at the gates.
+## 🧠 Approach and Logic
 
-## Local Setup
-```bash
-npm install
-node server.js
-# Access at http://localhost:3000
+> *"A crowd that knows what to do doesn't need to panic."*
+
+Most crowd incidents happen because people don't have reliable real-time information. EventFlow gives every attendee a **personal plan before they even arrive** — reducing anxiety, distributing crowd load, and preventing dangerous surges.
+
+### Biomimicry Inspiration
+| Animal | Behaviour | EventFlow Equivalent |
+|--------|-----------|----------------------|
+| 🐜 Ants | Pheromone trails redirect flow | Nudges steer fans from congested zones |
+| 🐟 Fish | Neighbour-aware schooling | Zone density cascades to adjacent zones |
+| 🐝 Bees | Hive broadcasts decisions | Control room dispatches to all staff/fans |
+
+### System Architecture
+
+```
+Fan App ──────────┐
+                  ├── Firebase Realtime DB ──── Control Room
+Staff App ────────┘                    └──────── AI Insights (Gemini)
+      ↑                                                   ↓
+      └── Instructions (nudges, directives) ──────────────┘
 ```
 
-## Running Tests
+Three panels, one live data loop — every action in the control room reflects in seconds.
+
+---
+
+## ☁️ Google Services Used
+
+| Service | Integration |
+|---------|-------------|
+| **Firebase Realtime Database** | Live 3-panel sync — zones, staff, instructions, nudges |
+| **Firebase Authentication** | Anonymous (fans) + Email/Password (staff/control) |
+| **Firebase Hosting** | Edge-cached PWA with SPA rewrite rules |
+| **Google Maps JS API** | Satellite view of NMS with dynamic Density-Aware Dijkstra Routing |
+| **Gemini 2.0 Flash API** | AI chat for fans + automated crowd insights for control room |
+| **Google Fonts** | DM Sans + Space Grotesk typography |
+
+---
+
+## ⚙️ How the Solution Works
+
+```
+Pre-event  → Fan answers 5 intake questions → Gets personalized gate + arrival timeline
+Arrival    → Advanced Bi-Directional Dijkstra Engine plots shortest topological maps
+During     → Real-time route rendering dynamically shifting (Green/Yellow/Red) + Alternate Pathing (Blue)
+Exit       → AI-ranked exit options: leave now / wait 15 min / stay for ceremony
+Post-match → Star-rating feedback → data feeds next event improvements
+```
+
+**Staff panel simultaneously:**
+- Toggle zone status (clear / crowded) → Firebase updates instantly
+- Receive control room instructions in real time with acknowledgement
+
+**Control room simultaneously:**
+- Scrub a simulation timeline slider (t=0 to t=480 min) to test any scenario
+- Send targeted instructions to specific zones
+- Broadcast nudges to all attendees
+- Get AI-generated crowd insights every 2 minutes (Gemini)
+
+---
+
+## 🖥️ Demo Path (5 minutes for judges)
+
+### Step 1 — Control Room *(open on desktop)*
+1. Go to [/control-login](https://eventflow-4f04a.web.app/control-login)
+2. Login: `control@eventflow.demo` / `Control@123`
+3. Drag the **Timeline** slider to `t=240` (innings break)
+4. Watch North zone turn **red** on the satellite map
+5. Click **Dispatch** → send instruction to staff
+
+### Step 2 — Staff Panel *(open in second window)*
+1. Go to [/staff-login](https://eventflow-4f04a.web.app/staff-login)
+2. Login: `staff@eventflow.demo` / `Staff@123`, zone → *North Concourse*
+3. The instruction from Step 1 appears instantly
+4. Toggle zone to **CROWDED** → see map update in control room
+
+### Step 3 — Attendee App *(open on mobile or narrow window)*
+1. Go to [eventflow-4f04a.web.app](https://eventflow-4f04a.web.app/)
+2. Tap **Match Attendee** (no login needed)
+3. Complete the 5-question intake
+4. Check personalized gate recommendation
+5. Tap 🤖 → ask *"What's the fastest exit?"*
+6. Navigate to **During** → see the live nudge from control room
+
+### Step 4 — Navigation Map
+1. Go to [/attendee-navigation.html](https://eventflow-4f04a.web.app/attendee-navigation.html)
+2. See Dijkstra route: North → Concourse → Gates → Parking
+3. Route shows estimated exit time
+4. Smart suggestion appears based on current zone density
+
+---
+
+## 🔑 Login Credentials
+
+| Role | Email | Password |
+|------|-------|----------|
+| Attendee | *(tap "Match Attendee" — anonymous)* | — |
+| Staff | `staff@eventflow.demo` | `Staff@123` |
+| Control Room | `control@eventflow.demo` | `Control@123` |
+
+> Create these accounts in **Firebase Console → Authentication → Add user**
+
+---
+
+## 📌 Assumptions Made
+
+- Stadium coordinates: NMS, Ahmedabad (23.0918°N, 72.5972°E)
+- Match simulation: T20, 18:00 IST start, 8-hour simulation window
+- Zone overlays are approximate bounding rectangles (not exact CAD polygons)
+- Gemini AI implements context-aware intelligent fallback using live zone density data when the API is rate-limited, returning relevant crowd guidance without generic error messages
+- Firebase Anonymous Authentication must be enabled in the Firebase console
+- Staff/Control accounts must be manually created in Firebase Authentication
+
+---
+
+## 💻 Local Setup
+
+```bash
+# Clone
+git clone https://github.com/chparam612/Eventflow_n.git
+cd Eventflow_n
+
+# Add your real API keys to:
+# - src/firebase.js     (Firebase config)
+# - public/index.html   (Google Maps key)
+
+# Run dev server (no npm install needed)
+node server.js
+
+# Open
+http://localhost:3000
+```
+
+---
+
+## 🧪 Running Tests
+
 ```bash
 npm test
-# Expected: "🎉 All 12 tests passed! EventFlow V2 verified."
 ```
 
-## Future Roadmap
-- Deeper integration with turnstile APIs.
-- Real-time video density analysis with Gemini 1.5 Vision.
+Expected result:
+```
+✓ 50 Core Engine Tests Passed
+✓ 6 Navigation Integration Tests Passed
+✓ 5 Navigation Audit Tests Passed
 
-## Accessibility
-EventFlow is built with large tap targets, high contrast dark-mode defaults, and screen-reader compliant semantic routing to meet AA standard needs.
+  Results: 61/61 tests passed
+🎉 All tests passed — EventFlow V2 is stable.
+```
+
+---
+
+## 🚀 Firebase Deployment
+
+```bash
+node build.js          # copies src/ → public/src/
+firebase login
+firebase deploy
+```
+
+---
+
+## 🔮 Future Roadmap
+
+- [ ] WebRTC video from zone cameras into control room
+- [ ] BLE beacon indoor positioning (exact row/seat)
+- [ ] WhatsApp nudges via Meta API
+- [ ] Predictive surge AI (10-minute advance warning)
+- [ ] Service Worker offline PWA caching
+- [ ] Multi-stadium support (Wankhede, Eden Gardens)
+
+---
+
+## ♿ Accessibility
+
+- All interactive buttons have descriptive `aria-label` attributes
+- `aria-live="polite"` on AI chat messages container (`role="log"`)
+- `aria-live="assertive"` on staff instruction card (`role="alert"`)
+- `aria-live="polite"` on control room zone alerts (`role="status"`)
+- `:focus-visible` CSS with `#00C49A` outline for keyboard navigation
+- `.sr-only` utility class for screen-reader-only text
+- Login inputs wrapped in semantic `<form>` with `autocomplete` attributes
+- Zone status pills: `role="list/listitem"` with density % in `aria-label`
+- Decorative emoji icons marked `aria-hidden="true"`
+- Color is never the sole status indicator — text labels always accompany colors
+- Minimum font size: 0.78rem (~12.5px) throughout
+- Dark theme meets WCAG AA contrast ratio
+- Touch targets minimum 44×44px on mobile
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Vanilla JavaScript ES Modules (zero framework) |
+| Styling | CSS Variables + Vanilla CSS |
+| Database | Firebase Realtime Database v10.8.0 |
+| Auth | Firebase Authentication v10.8.0 |
+| Hosting | Firebase Hosting (edge-cached) |
+| Maps | Google Maps JavaScript API — satellite + zone overlays |
+| AI | Google Gemini 2.0 Flash |
+| Fonts | Google Fonts — DM Sans + Space Grotesk |
+| Tests | Node.js native (no test framework) |
+
+---
+
+*EventFlow V2 · Google Prompt Wars 2026 · Built with ❤️ for NMS*

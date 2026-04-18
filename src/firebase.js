@@ -1,91 +1,200 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, push, onValue, query, orderByChild, equalTo, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+/**
+ * EventFlow V2 — Firebase Module
+ * Version: 10.8.0 ONLY
+ */
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import {
+  getDatabase, ref, set, push, onValue,
+  query, orderByChild, equalTo, limitToLast, off
+} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
+import { 
+  getFirestore, collection, addDoc, serverTimestamp 
+} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
+// ─── Firebase Config ───────────────────────────────────────────────────────
 const firebaseConfig = {
-  apiKey: "AIzaSyDfb2dJusJELO0XFuShgh_sPD96Yu6CpKY",
-  authDomain: "eventflow-v3.firebaseapp.com",
-  projectId: "eventflow-v3",
-  storageBucket: "eventflow-v3.firebasestorage.app",
-  messagingSenderId: "2493932253",
-  appId: "1:2493932253:web:0b75e246720ef38f99f134",
-  measurementId: "G-PZDD3F2SMD"
+  apiKey: "AIzaSyBYRQswMKJZITJwta4IBnZfdQ-Sw7kercQ",
+  authDomain: "eventflow-4f04a.firebaseapp.com",
+  databaseURL: "https://eventflow-4f04a-default-rtdb.firebaseio.com",
+  projectId: "eventflow-4f04a",
+  storageBucket: "eventflow-4f04a.firebasestorage.app",
+  messagingSenderId: "48936766474",
+  appId: "1:48936766474:web:605b8c457f3a73ca0463f3",
+  measurementId: "G-ZJ6Q3RCY0N"
 };
 
+// ─── App Init ──────────────────────────────────────────────────────────────
 export const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const fs = getFirestore(app);
 
+// ─── Write Guard ──────────────────────────────────────────────────────────
 const _writing = new Set();
 
 async function safeWrite(key, fn) {
   if (_writing.has(key)) return;
   _writing.add(key);
-  try { await fn(); }
-  finally { _writing.delete(key); }
+  try {
+    await fn();
+  } catch (e) {
+    console.warn('[Firebase] Write failed:', key, e.message);
+  } finally {
+    _writing.delete(key);
+  }
+}
+
+// ─── Write Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Log a critical incident to Firestore for historical audit
+ */
+export async function logIncident(type, zone, description) {
+  try {
+    await addDoc(collection(fs, 'incidents'), {
+      type,
+      zone,
+      description,
+      timestamp: serverTimestamp(),
+      severity: 'CRITICAL'
+    });
+  } catch (e) {
+    console.warn('[Firestore] Incident log failed:', e.message);
+  }
 }
 
 export async function writeZone(zoneId, density, status) {
   await safeWrite('zone:' + zoneId, () =>
-    set(ref(db, 'zones/' + zoneId), { density, status, updatedAt: Date.now() })
+    set(ref(db, 'zones/' + zoneId), {
+      density,
+      status,
+      updatedAt: Date.now()
+    })
   );
 }
 
-export async function writeStaffStatus(uid, zone, status) {
+export async function writeStaffStatus(uid, zone, status, online = true) {
   await safeWrite('staff:' + uid, () =>
-    set(ref(db, 'staff/' + uid), { zone, status, updatedAt: Date.now(), online: true })
+    set(ref(db, 'staff/' + uid), {
+      zone,
+      status,
+      online,
+      updatedAt: Date.now()
+    })
   );
 }
 
 export async function pushInstruction(zoneId, message, sentBy) {
-  await safeWrite('instr:' + zoneId, () =>
-    push(ref(db, 'instructions'), { zoneId, message, sentBy, sentAt: Date.now(), acked: {} })
-  );
-}
-
-export async function ackInstruction(id, uid) {
-  await safeWrite('ack:' + id, () =>
-    set(ref(db, `instructions/${id}/acked/${uid}`), true)
+  await safeWrite('instr:' + zoneId + ':' + Date.now(), () =>
+    push(ref(db, 'instructions'), {
+      zoneId,
+      message,
+      sentBy,
+      sentAt: Date.now(),
+      acked: []
+    })
   );
 }
 
 export async function pushNudge(zoneId, message) {
-  await safeWrite('nudge:' + zoneId, () =>
-    push(ref(db, 'nudges'), { zoneId, message, sentAt: Date.now() })
+  await safeWrite('nudge:' + zoneId + ':' + Date.now(), () =>
+    push(ref(db, 'nudges'), {
+      zoneId,
+      message,
+      sentAt: Date.now()
+    })
   );
 }
 
 export async function saveAttendeeData(uid, data) {
   await safeWrite('att:' + uid, () =>
-    set(ref(db, 'attendees/' + uid), { ...data, savedAt: Date.now() })
+    set(ref(db, 'attendees/' + uid), {
+      ...data,
+      savedAt: Date.now()
+    })
   );
 }
 
 export async function saveFeedback(data) {
-  await safeWrite('feedback:' + Date.now(), () =>
-    push(ref(db, 'feedback'), { ...data, submittedAt: Date.now() })
-  );
+  try {
+    await push(ref(db, 'feedback'), {
+      ...data,
+      submittedAt: Date.now()
+    });
+  } catch (e) {
+    console.warn('[Firebase] Feedback save failed:', e.message);
+  }
 }
 
+export async function setEmergencyStatus(active, type = null, zone = null) {
+  try {
+    const timestamp = Date.now();
+    await safeWrite('emergency_status', () =>
+      set(ref(db, 'emergency/status'), {
+        active,
+        type,
+        zone,
+        timestamp: active ? timestamp : null
+      })
+    );
+    
+    // Log to Firestore if active
+    if (active) {
+      await logIncident(type, zone, `Emergency activated by control room`);
+    }
+  } catch (error) {
+    console.error("Emergency write failed:", error);
+  }
+}
+
+// ─── Listeners ─────────────────────────────────────────────────────────────
+
 export function listenZones(cb) {
-  return onValue(ref(db, 'zones'), snap => cb(snap.val() || {}));
+  const r = ref(db, 'zones');
+  onValue(r, snap => cb(snap.val() || {}));
+  return () => off(r);
 }
 
 export function listenInstructions(zoneId, cb) {
-  const q = query(ref(db, 'instructions'), orderByChild('zoneId'), equalTo(zoneId), limitToLast(10));
-  return onValue(q, snap => {
+  const q = query(
+    ref(db, 'instructions'),
+    orderByChild('zoneId'),
+    equalTo(zoneId),
+    limitToLast(10)
+  );
+  onValue(q, snap => {
     const items = [];
     snap.forEach(c => items.push({ id: c.key, ...c.val() }));
-    cb(items.reverse());
+    if (cb) cb(items.reverse());
   });
+  return () => off(q);
 }
 
 export function listenNudges(cb) {
-  return onValue(ref(db, 'nudges'), snap => {
+  const q = query(ref(db, 'nudges'), limitToLast(5));
+  onValue(q, snap => {
     const items = [];
     snap.forEach(c => items.push({ id: c.key, ...c.val() }));
-    cb(items.slice(-5));
+    if (cb) cb(items.reverse());
   });
+  return () => off(q);
 }
 
 export function listenAllStaff(cb) {
-  return onValue(ref(db, 'staff'), snap => cb(snap.val() || {}));
+  const r = ref(db, 'staff');
+  onValue(r, snap => cb(snap.val() || {}));
+  return () => off(r);
+}
+
+export function listenEmergency(cb) {
+  const r = ref(db, 'emergency/status');
+  onValue(r, snap => {
+    const val = snap.val();
+    if (!val) {
+      set(ref(db, 'emergency/status'), { active: false });
+      cb({ active: false });
+    } else {
+      cb(val);
+    }
+  });
+  return () => off(r);
 }
